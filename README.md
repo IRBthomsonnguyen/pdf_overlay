@@ -47,3 +47,9 @@ If `python` or `py` is not recognised, install Python from [python.org](https://
 Upload PDFs in the two columns. Files are paired by filename (without the `.pdf` extension). If there are no matching filenames, files are paired alphabetically by upload list order. PDFs with different page counts are reported and skipped.
 
 The output is rasterised at the selected DPI, which makes the colour overlay reliable across vector and scanned PDFs. For best alignment, the old and new PDFs should use the same page size and orientation.
+
+### Current URL
+
+```
+https://pdfoverlaygit-ml6fgw5kj2fqsupk5wdcc5.streamlit.app/
+```
