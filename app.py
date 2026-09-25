@@ -52,16 +52,26 @@ def page_to_image(page: fitz.Page, dpi: int) -> Image.Image:
 
 
 def tint(image: Image.Image, colour: tuple[int, int, int], strength: float) -> Image.Image:
-    """Apply a colour tint while retaining the source drawing detail."""
-    # Increase contrast slightly so fine drawing lines remain visible after tinting.
-    grayscale = ImageEnhance.Contrast(image.convert("L")).enhance(1.1)
-    # Map dark pixels to the requested colour and white pixels to white.
-    # ImageOps.colorize also handles the grayscale-to-RGB conversion safely.
-    tinted = ImageOps.colorize(grayscale, black=colour, white=(255, 255, 255))
-    return Image.blend(image.convert("RGB"), tinted, strength)
+    """Convert dark drawing lines into a coloured layer with a transparent background."""
+    # Invert the page so dark drawing lines become opaque and white paper becomes transparent.
+    grayscale = ImageEnhance.Contrast(image.convert("L")).enhance(1.35)
+    line_strength = ImageOps.autocontrast(ImageOps.invert(grayscale), cutoff=1)
+    alpha = line_strength.point(lambda value: min(255, int(value * strength)))
+
+    # Store the drawing colour and transparency separately in an RGBA image.
+    tinted = Image.new("RGBA", image.size, colour + (0,))
+    tinted.putalpha(alpha)
+    return tinted
 
 
-def overlay_pdf(old_bytes: bytes, new_bytes: bytes, dpi: int, tint_strength: float, blend: float) -> bytes:
+def overlay_pdf(
+    old_bytes: bytes,
+    new_bytes: bytes,
+    dpi: int,
+    tint_strength: float,
+    blend: float,
+    background: tuple[int, int, int],
+) -> bytes:
     """Render, colourise, blend, and export matching PDF pages as one PDF."""
     # Open both uploaded files directly from memory; no temporary files are needed.
     old_doc = fitz.open(stream=old_bytes, filetype="pdf")
@@ -78,10 +88,15 @@ def overlay_pdf(old_bytes: bytes, new_bytes: bytes, dpi: int, tint_strength: flo
             if old_image.size != new_image.size:
                 new_image = new_image.resize(old_image.size, Image.Resampling.LANCZOS)
 
-            old_red = tint(old_image, (220, 30, 45), tint_strength)
-            new_green = tint(new_image, (25, 165, 80), tint_strength)
-            # A 50/50 blend makes unchanged areas neutral and changes colourful.
-            result = Image.blend(old_red, new_green, blend).convert("RGB")
+            # Adjust each layer's opacity using the selected old/new blend ratio.
+            old_red = tint(old_image, (220, 30, 45), tint_strength * 2 * (1 - blend))
+            new_green = tint(new_image, (25, 165, 80), tint_strength * 2 * blend)
+
+            # Composite transparent coloured linework over a neutral background.
+            result = Image.new("RGBA", old_image.size, background + (255,))
+            result.alpha_composite(old_red)
+            result.alpha_composite(new_green)
+            result = result.convert("RGB")
             pages.append(result)
     finally:
         # Always release the PDF handles, including when a page raises an error.
@@ -125,6 +140,16 @@ with st.sidebar:
     dpi = st.slider("Render quality (DPI)", min_value=72, max_value=200, value=192, step=12)
     tint_strength = st.slider("Colour strength", min_value=0.0, max_value=1.0, value=0.85, step=0.05)
     blend = st.slider("New PDF blend", min_value=0.0, max_value=1.0, value=0.85, step=0.05)
+    background_name = st.selectbox(
+        "Overlay background",
+        ["Light grey", "Dark charcoal", "White"],
+        help="A neutral background improves contrast once the PDF paper background is removed.",
+    )
+    background = {
+        "Light grey": (238, 240, 242),
+        "Dark charcoal": (35, 39, 45),
+        "White": (255, 255, 255),
+    }[background_name]
     st.info("Higher DPI improves detail but increases processing time and output size.")
 
 # Keep the old and new upload areas side-by-side for easy visual association.
@@ -154,7 +179,14 @@ if old_files and new_files:
         errors: list[str] = []
         for index, (old_file, new_file) in enumerate(pairs):
             try:
-                result = overlay_pdf(old_file.getvalue(), new_file.getvalue(), dpi, tint_strength, blend)
+                result = overlay_pdf(
+                    old_file.getvalue(),
+                    new_file.getvalue(),
+                    dpi,
+                    tint_strength,
+                    blend,
+                    background,
+                )
                 results.append((output_name(old_file.name, new_file.name), result))
             except Exception as exc:  # Keep the batch going if one pair is invalid.
                 errors.append(f"{old_file.name} / {new_file.name}: {exc}")
