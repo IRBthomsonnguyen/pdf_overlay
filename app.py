@@ -107,9 +107,9 @@ st.caption("Colourise an old drawing red, a new drawing green, and blend them to
 # Sidebar controls let the user trade output quality and file size against speed.
 with st.sidebar:
     st.header("Processing settings")
-    dpi = st.slider("Render quality (DPI)", min_value=72, max_value=200, value=120, step=12)
+    dpi = st.slider("Render quality (DPI)", min_value=72, max_value=200, value=192, step=12)
     tint_strength = st.slider("Colour strength", min_value=0.0, max_value=1.0, value=0.85, step=0.05)
-    blend = st.slider("New PDF blend", min_value=0.0, max_value=1.0, value=0.5, step=0.05)
+    blend = st.slider("New PDF blend", min_value=0.0, max_value=1.0, value=0.85, step=0.05)
     st.info("Higher DPI improves detail but increases processing time and output size.")
 
 # Keep the old and new upload areas side-by-side for easy visual association.
