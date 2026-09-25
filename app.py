@@ -93,6 +93,21 @@ def overlay_pdf(old_bytes: bytes, new_bytes: bytes, dpi: int, tint_strength: flo
     pages[0].save(output, format="PDF", save_all=True, append_images=pages[1:], resolution=dpi)
     return output.getvalue()
 
+def combine_pdfs(pdf_bytes_list: list[bytes]) -> bytes:
+    """Combine multiple PDFs into a single PDF."""
+    output = io.BytesIO()
+    pdf_writer = fitz.open()  # Create a new PDF document
+
+    for pdf_bytes in pdf_bytes_list:
+        pdf_reader = fitz.open(stream=pdf_bytes, filetype="pdf")
+        for page in pdf_reader:
+            pdf_writer.insert_pdf(pdf_reader, from_page=page.number, to_page=page.number)
+        pdf_reader.close()
+
+    pdf_writer.save(output)
+    pdf_writer.close()
+    return output.getvalue()
+
 
 def output_name(old_name: str, new_name: str) -> str:
     """Create a stable download filename based on the new PDF name."""
@@ -162,9 +177,20 @@ if old_files and new_files:
                 mime="application/zip",
                 use_container_width=True,
             )
+
+            st.download_button(
+                "Download all overlays (combined PDF)",
+                data=combine_pdfs([data for _, data in results]),
+                file_name="pdf_overlays_combined.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
+
             for name, data in results:
                 # Also provide individual download buttons for users who need one file.
                 st.download_button(f"Download {name}", data=data, file_name=name, mime="application/pdf")
+
+
 else:
     # Keep the empty state helpful before any files have been selected.
     st.info("Upload at least one old PDF and one new PDF to begin.")
