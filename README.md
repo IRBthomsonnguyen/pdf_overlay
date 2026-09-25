@@ -17,6 +17,15 @@ python -m pip install -r requirements.txt
 streamlit run app.py
 ```
 
+### Recommended: virtual environment (mac)
+
+```powershell
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m streamlit run app.py
+```
+
 ### If Windows will not create a virtual environment
 
 Install the packages for your Windows user account instead:
