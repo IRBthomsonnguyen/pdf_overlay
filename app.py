@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import zipfile
 from pathlib import Path
+from datetime import datetime
 
 import fitz  # PyMuPDF
 import streamlit as st
@@ -89,8 +90,8 @@ def overlay_pdf(
                 new_image = new_image.resize(old_image.size, Image.Resampling.LANCZOS)
 
             # Adjust each layer's opacity using the selected old/new blend ratio.
-            old_red = tint(old_image, (220, 30, 45), tint_strength * 2 * (1 - blend))
-            new_green = tint(new_image, (25, 165, 80), tint_strength * 2 * blend)
+            old_red = tint(old_image, (255, 0, 21), tint_strength * 2 * (1 - blend))
+            new_green = tint(new_image, (0, 255, 0), tint_strength * 2 * blend)
 
             # Composite transparent coloured linework over a neutral background.
             result = Image.new("RGBA", old_image.size, background + (255,))
@@ -137,12 +138,12 @@ st.caption("Colourise an old drawing red, a new drawing green, and blend them to
 # Sidebar controls let the user trade output quality and file size against speed.
 with st.sidebar:
     st.header("Processing settings")
-    dpi = st.slider("Render quality (DPI)", min_value=72, max_value=200, value=192, step=12)
-    tint_strength = st.slider("Colour strength", min_value=0.0, max_value=1.0, value=0.85, step=0.05)
-    blend = st.slider("New PDF blend", min_value=0.0, max_value=1.0, value=0.85, step=0.05)
+    dpi = st.slider("Render quality (DPI)", min_value=72, max_value=192, value=132, step=12)
+    tint_strength = st.slider("Colour strength", min_value=0.0, max_value=1.0, value=0.9, step=0.05)
+    blend = st.slider("New PDF blend", min_value=0.0, max_value=1.0, value=0.6, step=0.05)
     background_name = st.selectbox(
         "Overlay background",
-        ["Light grey", "Dark charcoal", "White"],
+        ["White", "Dark charcoal", "Light grey"],
         help="A neutral background improves contrast once the PDF paper background is removed.",
     )
     background = {
@@ -210,10 +211,14 @@ if old_files and new_files:
                 use_container_width=True,
             )
 
+            #Get the first 20 characters of the first file name to use as the combined PDF name, or use a default name if there are multiple files.
+            current_date = datetime.now().strftime("%Y-%m-%d")
+            combined_pdf_name = Path(results[0][0]).stem[:25] + f"_{current_date}_combined.pdf"
+
             st.download_button(
                 "Download all overlays (combined PDF)",
                 data=combine_pdfs([data for _, data in results]),
-                file_name="pdf_overlays_combined.pdf",
+                file_name=combined_pdf_name,
                 mime="application/pdf",
                 use_container_width=True,
             )
